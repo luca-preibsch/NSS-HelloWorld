@@ -1,7 +1,8 @@
 CXX = clang++
-CXXFLAGS = -std=c++11 -Wall
+CXXFLAGS = -std=c++11 # -Wall
 
-LIBDIR = ../dist/Debug/lib
+LIBDIR = /Users/luca/Dev/FAU/FAU_Proj/nss/dist/Debug/lib
+LNKFLAGS = -L$(LIBDIR) -lnss3 # list all used libraries (-l<libraryname> without lib prefix and file ending>)
 
 .PHONY: all clean run-server run-client
 
@@ -11,16 +12,16 @@ clean:
 	rm -f src/client/*.o client src/server/*.o server
 
 run-server: server
-	export LD_LIBRARY_PATH=$(LIBDIR):$$LD_LIBRARY_PATH && ./server
+	export DYLD_LIBRARY_PATH=$(LIBDIR):$$DYLD_LIBRARY_PATH && ./server
 
 run-client: client
-	export LD_LIBRARY_PATH=$(LIBDIR):$$LD_LIBRARY_PATH && ./client
+	export DYLD_LIBRARY_PATH=$(LIBDIR):$$DYLD_LIBRARY_PATH && ./client
 
 server: src/server/server.o
-	$(CXX) $(CXXFLAGS) $^ -o $@
+	$(CXX) $(CXXFLAGS) $^ -o $@ $(LNKFLAGS)
 
 client: src/client/client.o
-	$(CXX) $(CXXFLAGS) $^ -o $@
+	$(CXX) $(CXXFLAGS) $^ -o $@ $(LNKFLAGS)
 
 src/server/%.o: src/server/%.cpp
 	$(CXX) $(CXXFLAGS) -c $< -o $@
