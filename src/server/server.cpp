@@ -2,32 +2,42 @@
 
 #include "../../include/nss.h"
 #include "../../include/ssl.h"
+#include "../../include/nspr.h"
 
 int main() {
-    // Initialisiere NSS
-    NSS_NoDB_Init(NULL);
+    // must be called before any other NSS function
+    PR_Init(PR_SYSTEM_THREAD, PR_PRIORITY_NORMAL, 1);
 
-    // Initialisiere SSL
-    PRFileDesc *socket = PR_NewTCPSocket();
-//    PR_SetSocketOption(socket, PR_SockOpt_Nonblocking, PR_TRUE);
-    PRSocketOptionData opt = {.option = PR_SockOpt_Linger, .value.linger = {0, 0}};
-//    PR_SetSocketOption(socket, PR_SockOpt_Linger, &opt);
+//    char* db_dir = "./";
+//    NSS_Init("./");
 
-    // Erzeuge einen SSL-Socket
-    PRFileDesc *sslSocket = SSL_ImportFD(NULL, socket);
-
-    // Initialisiere den TLS-Handshake
-    SSL_ResetHandshake(sslSocket, PR_TRUE);
-
-    // Führe den TLS-Handshake durch
-    if (SSL_ForceHandshake(sslSocket) == SECSuccess) {
-        // TLS-Handshake erfolgreich
-        // Hier kannst du mit dem sicheren Datenaustausch fortfahren
-    }
-
-    // Aufräumen
-    PR_Shutdown(sslSocket, PR_SHUTDOWN_BOTH);
-    PR_Close(socket);
-
-    return 0;
 }
+
+//int main() {
+//    // NSS initialisieren
+//    NSS_Init("");
+//
+//    // SSL-Server erstellen
+//    PRFileDesc* serverSocket = SSL_CreateServerSocket(PR_AF_INET, PR_STREAM_LISTEN, 0, 443, nullptr);
+//    if (!serverSocket) {
+//        fprintf(stderr, "Fehler beim Erstellen des Server-Sockets\n");
+//        return 1;
+//    }
+//
+//    // Auf Verbindungen warten
+//    PRFileDesc* sslSocket = SSL_ImportFD(nullptr, serverSocket);
+//    PRStatus status = PR_Accept(sslSocket, nullptr, PR_INTERVAL_NO_TIMEOUT);
+//    if (status != PR_SUCCESS) {
+//        fprintf(stderr, "Fehler beim Akzeptieren der Verbindung\n");
+//        return 1;
+//    }
+//
+//    // Daten über die TLS-Verbindung senden/empfangen
+//    // Implementiere hier deine Logik für die Datenübertragung
+//
+//    // Aufräumen
+//    PR_Close(serverSocket);
+//    NSS_Shutdown();
+//
+//    return 0;
+//}
