@@ -81,8 +81,15 @@ int main() {
         int buf_len = strlen("Hello World!") + 1; // +1 for /0
         char buf[buf_len];
         memset(buf, 0, buf_len);
-        if (buf_len != PR_Read(ssl_sock, buf, buf_len)) {
+        int bytes_read = PR_Read(ssl_sock, buf, buf_len);
+        if (bytes_read == -1) {
+            // TODO receive error correctly
+            char error_buf[PR_GetErrorTextLength() + 1];
+            PR_GetErrorText(error_buf);
+            cout << error_buf << endl;
             die("Error receiving 'Hello World!'");
+        } else if (bytes_read == 0) {
+            die("Error connection closed before receiving bytes");
         }
         cout << "Message: " << buf << endl;
 

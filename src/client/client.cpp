@@ -51,26 +51,21 @@ int main() {
     }
 
     log("got host by name");
-
     PRNetAddr server_addr;
-//    PR_InitializeNetAddr(PR_IpAddrAny, 0, &server_addr);
-//    server_addr.inet.family = PR_AF_INET;
-//    server_addr.inet.port = PR_htons(SERVER_PORT);
-
     int index = 0;
-    do {
+    for (;;) {
         index = PR_EnumerateHostEnt(index, &host_ent, SERVER_PORT, &server_addr);
-    } while (index != 0);
-    if (index == -1) {
-        die("Error enumerating host entities");
-    } else if (index == 0) {
-        die("No valid host entity found");
-    }
+        if (index == -1) {
+            die("Error enumerating host entities");
+        }
+        if (index == 0) {
+            die("Found no valid host entity");
+        }
 
-    log("found valid host entity");
-
-    if (PR_FAILURE == PR_Connect(ssl_sock, &server_addr, PR_INTERVAL_NO_TIMEOUT)) {
-        die("Error connecting to server");
+        if (PR_SUCCESS == PR_Connect(ssl_sock, &server_addr, PR_INTERVAL_NO_TIMEOUT)) {
+            break;
+//            die("Error connecting to server");
+        }
     }
 
     log("connected to host entity");
