@@ -35,6 +35,7 @@ int main() {
 
     // bind listen sock to a specific port
     PRNetAddr listen_addr;
+//    PR_InitializeNetAddr()
     listen_addr.inet.family = PR_AF_INET;
     listen_addr.inet.ip = PR_INADDR_ANY;
     listen_addr.inet.port = PR_htons(SERVER_PORT);
@@ -69,7 +70,7 @@ int main() {
 
     // create SSL socket from TCP socket
     PRFileDesc* ssl_sock = SSL_ImportFD(nullptr, tcp_sock);
-    if (!listen_sock) {
+    if (!ssl_sock) {
         die("Error importing TCP socket into SSL library");
         PR_Close(listen_sock);
         PR_Close(tcp_sock);
@@ -77,13 +78,15 @@ int main() {
 
     // Read "Hello World!"
     int buf_len = strlen("Hello World!") + 1; // +1 for /0
-    string buf[buf_len];
-    PR_Read(ssl_sock, &buf, buf_len);
-    cout << "Message:/n" << buf << endl;
+    char buf[buf_len];
+    memset(buf, 0, buf_len);
+    if (buf_len != PR_Read(ssl_sock, buf, buf_len)) {
+        die("Error receiving 'Hello World!'");
+    }
+    cout << "Message: " << buf << endl;
 
     PR_Close(listen_sock);
     PR_Close(ssl_sock);
-    PR_Close(tcp_sock); // not needed because PR_Close(ssl_sock)?
     NSS_Shutdown();
 
     log("shutting down");
