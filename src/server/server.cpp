@@ -59,34 +59,37 @@ int main() {
 
     log("started listening");
 
-    PRNetAddr client_addr;
-    PRFileDesc* tcp_sock = PR_Accept(listen_sock, &client_addr, PR_INTERVAL_NO_TIMEOUT);
-    if (!tcp_sock) {
-        die("Error accepting client connection");
-        PR_Close(listen_sock);
-    }
+    for (;;) {
+        PRNetAddr client_addr;
+        PRFileDesc* tcp_sock = PR_Accept(listen_sock, &client_addr, PR_INTERVAL_NO_TIMEOUT);
+        if (!tcp_sock) {
+            die("Error accepting client connection");
+            PR_Close(listen_sock);
+        }
 
-    log("accepted connection");
+        log("accepted connection");
 
-    // create SSL socket from TCP socket
-    PRFileDesc* ssl_sock = SSL_ImportFD(nullptr, tcp_sock);
-    if (!ssl_sock) {
-        die("Error importing TCP socket into SSL library");
-        PR_Close(listen_sock);
-        PR_Close(tcp_sock);
-    }
+        // create SSL socket from TCP socket
+        PRFileDesc* ssl_sock = SSL_ImportFD(nullptr, tcp_sock);
+        if (!ssl_sock) {
+            die("Error importing TCP socket into SSL library");
+            PR_Close(listen_sock);
+            PR_Close(tcp_sock);
+        }
 
-    // Read "Hello World!"
-    int buf_len = strlen("Hello World!") + 1; // +1 for /0
-    char buf[buf_len];
-    memset(buf, 0, buf_len);
-    if (buf_len != PR_Read(ssl_sock, buf, buf_len)) {
-        die("Error receiving 'Hello World!'");
+        // Read "Hello World!"
+        int buf_len = strlen("Hello World!") + 1; // +1 for /0
+        char buf[buf_len];
+        memset(buf, 0, buf_len);
+        if (buf_len != PR_Read(ssl_sock, buf, buf_len)) {
+            die("Error receiving 'Hello World!'");
+        }
+        cout << "Message: " << buf << endl;
+
+        PR_Close(ssl_sock);
     }
-    cout << "Message: " << buf << endl;
 
     PR_Close(listen_sock);
-    PR_Close(ssl_sock);
     NSS_Shutdown();
 
     log("shutting down");
