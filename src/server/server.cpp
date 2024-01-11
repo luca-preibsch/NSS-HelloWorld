@@ -82,16 +82,17 @@ int main() {
     listen_addr.inet.family = PR_AF_INET;
     listen_addr.inet.ip = PR_INADDR_ANY;
     listen_addr.inet.port = PR_htons(SERVER_PORT);
-    if (PR_Bind(listen_sock, &listen_addr)) {
-        die("Error binding listen socket");
-        PR_Close(listen_sock);
-    }
 
     // TODO: needed for listen socket?
     // create SSL socket from TCP socket
     listen_sock = SSL_ImportFD(nullptr, listen_sock);
     if (!listen_sock) {
         die("Error importing listen socket into SSL library");
+    }
+
+    if (PR_Bind(listen_sock, &listen_addr)) {
+        die("Error binding listen socket");
+        PR_Close(listen_sock);
     }
 
     // configure listen sock for handshakes, sockets created by PR_Accept on this socket inherit the configuration
