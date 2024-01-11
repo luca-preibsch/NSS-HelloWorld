@@ -3,8 +3,9 @@
 #include "../../include/nss.h"
 #include "../../include/ssl.h"
 #include "../../include/nspr.h"
+#include "../../include/pk11func.h"
 
-#define DB_DIR "./"
+#define DB_DIR "./server_db"
 #define SERVER_PORT 12345
 
 using namespace std;
@@ -18,12 +19,54 @@ void log(const string& msg) {
     cout << msg << endl;
 }
 
+void diePRError(const string& error_msg) {
+    // TODO receive error correctly
+    PRErrorCode errorCode = PR_GetError();
+    PRInt32 errorTextLength = PR_GetErrorTextLength();
+    char error_buf[errorTextLength + 1];
+    PR_GetErrorText(error_buf);
+    cout << "ErrorCode " << errorCode << ": " << error_buf << endl;
+    die(error_msg);
+}
+
+void enableAllCiphers() {
+    const PRUint16 *cipherSuites = SSL_ImplementedCiphers;
+    int i = SSL_NumImplementedCiphers;
+    SECStatus rv;
+
+    while (--i >= 0) {
+        PRUint16 suite = cipherSuites[i];
+        rv = SSL_CipherPrefSetDefault(suite, PR_TRUE);
+        if (rv != SECSuccess) {
+            printf("SSL_CipherPrefSetDefault rejected suite 0x%04x (i = %d)\n",
+                   suite, i);
+        }
+    }
+}
+
+char *passwd_callback(PK11SlotInfo *slot, PRBool retry, void *arg) {
+    char *passwd = "nss";
+    return PL_strdup(passwd);
+}
+
 int main() {
     // must be called before any other NSS function
     PR_Init(PR_SYSTEM_THREAD, PR_PRIORITY_NORMAL, 1);
 
+    // set callback retrieving the password
+    PK11_SetPasswordFunc(passwd_callback);
+
     // set up NSS config; not idempotent, only call once
     NSS_Init(DB_DIR);
+
+    // allow all ciphers permitted to export from the US
+    NSS_SetExportPolicy();
+//    enableAllCiphers();
+
+    // create server session id cache, required if the application should handshake as a server
+    // TODO: is this even applicable to a simple server? Does a simple server even handshake or does the client
+    // handshake and the server is handshaken???
+    SSL_ConfigServerSessionIDCache(NULL, 0, 10, NULL);
 
     log("NSS initialized");
 
@@ -51,8 +94,25 @@ int main() {
         die("Error importing listen socket into SSL library");
     }
 
+    // configure listen sock for handshakes, sockets created by PR_Accept on this socket inherit the configuration
+    /*
+        A pointer to application data for the password callback function. This pointer is
+        set with SSL_SetPKCS11PinArg during SSL configuration. To retrieve its current value, use
+        SSL_RevealPinArg. PK11_SetPasswordFunc
+     */
+    void *pwArg = SSL_RevealPinArg(listen_sock);
+    CERTCertificate *cert = PK11_FindCertFromNickname("myco.mcom.org", pwArg);
+    if (cert == NULL)
+        die("PK11_FindCertFromNickname");
+    SECKEYPrivateKey *privKey = PK11_FindKeyByAnyCert(cert, pwArg);
+    if (privKey == NULL)
+        die("PK11_FindKeyByAnyCert");
+    if (SECFailure == SSL_ConfigServerCert(listen_sock, cert, privKey, NULL, 0)) { // 505 selfserv.c
+        diePRError("SSL_ConfigServerCert");
+    }
+
     // start to listen on the socket
-    if (PR_Listen(listen_sock, 0)) {
+    if (PR_Listen(listen_sock, 1)) {
         die("Error starting to listen for listen socket");
         PR_Close(listen_sock);
     }
@@ -81,19 +141,15 @@ int main() {
         int buf_len = strlen("Hello World!") + 1; // +1 for /0
         char buf[buf_len];
         memset(buf, 0, buf_len);
-        int bytes_read = PR_Read(ssl_sock, buf, buf_len);
+        int bytes_read = PR_Read(tcp_sock, buf, buf_len); // ssl_sock
         if (bytes_read == -1) {
-            // TODO receive error correctly
-            char error_buf[PR_GetErrorTextLength() + 1];
-            PR_GetErrorText(error_buf);
-            cout << error_buf << endl;
-            die("Error receiving 'Hello World!'");
+            diePRError("Error receiving Hello World!");
         } else if (bytes_read == 0) {
             die("Error connection closed before receiving bytes");
         }
         cout << "Message: " << buf << endl;
 
-        PR_Close(ssl_sock);
+        PR_Close(tcp_sock);
     }
 
     PR_Close(listen_sock);

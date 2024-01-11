@@ -2,7 +2,7 @@ CXX = clang++
 CXXFLAGS = -std=c++11 -g # -Wall
 
 LIBDIR = /Users/luca/Dev/FAU/FAU_Proj/nss/dist/Debug/lib
-LNKFLAGS = -L$(LIBDIR) -lnss3 -lnspr4 -lssl3 # list all used libraries (-l<libraryname> without lib prefix and file ending>)
+LNKFLAGS = -L$(LIBDIR) -lnss3 -lnspr4 -lssl3 -lplc4 # list all used libraries (-l<libraryname> without lib prefix and file ending>)
 
 .PHONY: all clean run-server run-client
 
