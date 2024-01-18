@@ -5,8 +5,8 @@
 #include "../../include/nspr.h"
 #include "../../include/pk11func.h"
 
-#define DB_DIR "./client_db"
-#define HOSTNAME "localhost"
+#define DB_DIR "./pki"
+#define HOSTNAME "helloworld.example.com"
 #define SERVER_PORT 12345
 
 using namespace std;
@@ -20,14 +20,13 @@ void log(const string& msg) {
     cout << msg << endl;
 }
 
-void diePRError(const string& error_msg) {
-    // TODO receive error correctly
+void diePRError(const char* error_msg) {
     PRErrorCode errorCode = PR_GetError();
-    PRInt32 errorTextLength = PR_GetErrorTextLength();
-    char error_buf[errorTextLength + 1];
-    PR_GetErrorText(error_buf);
-    cout << "ErrorCode " << errorCode << ": " << error_buf << endl;
-    die(error_msg);
+    const char *errString = PR_ErrorToString(errorCode, PR_LANGUAGE_I_DEFAULT);
+
+    fprintf(stderr, "selfserv: %s returned error %d:\n%s\n",
+            error_msg, errorCode, errString);
+    exit(EXIT_FAILURE);
 }
 
 void enableAllCiphers() {
@@ -55,7 +54,7 @@ int main() {
     PR_Init(PR_SYSTEM_THREAD, PR_PRIORITY_NORMAL, 1);
 
     // set callback retrieving the password
-    PK11_SetPasswordFunc(passwd_callback);
+    PK11_SetPasswordFunc(passwd_callback); // now uses db without a password
 
     // set up NSS config; not idempotent, only call once
     NSS_Init(DB_DIR);
@@ -81,7 +80,7 @@ int main() {
     }
 
     // TODO set hostname, is the hostname set in the certificate the one needed?
-    SSL_SetURL(ssl_sock, "myco.mcom.org");
+    SSL_SetURL(ssl_sock, HOSTNAME);
 
     log("imported TCP Socket into NSS");
 
@@ -113,7 +112,7 @@ int main() {
     PRNetAddr srv_addr;
 //    PR_InitializeNetAddr()
     srv_addr.inet.family = PR_AF_INET;
-    srv_addr.inet.ip = inet_addr("127.0.0.1");
+    srv_addr.inet.ip = inet_addr("127.0.0.1"); // TODO get ip through domain
     srv_addr.inet.port = PR_htons(SERVER_PORT);
 
     if (PR_SUCCESS != PR_Connect(ssl_sock, &srv_addr, PR_INTERVAL_NO_TIMEOUT)) {
@@ -122,9 +121,13 @@ int main() {
 
     log("connected to host entity");
 
+    SSL_ForceHandshake(ssl_sock);
+
+    log("forced handshake");
+
     const char *msg_buf = "Hello World";
     int msg_buf_len = (int) strlen(msg_buf)+1;
-    switch (PR_Send(ssl_sock, msg_buf, msg_buf_len, 0, PR_INTERVAL_NO_TIMEOUT)) {
+    switch (PR_Write(ssl_sock, msg_buf, msg_buf_len)) {
         case -1:
             diePRError("PR_Send");
             break;
@@ -136,7 +139,7 @@ int main() {
     log("sent message");
 
     PR_Close(ssl_sock);
-    PR_Close(tcp_sock);
+//    PR_Close(tcp_sock); // already closed through the derived socket ssl_sock?
     NSS_Shutdown();
 
     log("shutting down");

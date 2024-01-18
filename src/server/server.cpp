@@ -5,7 +5,7 @@
 #include "../../include/nspr.h"
 #include "../../include/pk11func.h"
 
-#define DB_DIR "./server_db"
+#define DB_DIR "./pki"
 #define SERVER_PORT 12345
 
 using namespace std;
@@ -19,14 +19,13 @@ void log(const string& msg) {
     cout << msg << endl;
 }
 
-void diePRError(const string& error_msg) {
-    // TODO receive error correctly
+void diePRError(const char* error_msg) {
     PRErrorCode errorCode = PR_GetError();
-    PRInt32 errorTextLength = PR_GetErrorTextLength();
-    char error_buf[errorTextLength + 1];
-    PR_GetErrorText(error_buf);
-    cout << "ErrorCode " << errorCode << ": " << error_buf << endl;
-    die(error_msg);
+    const char *errString = PR_ErrorToString(errorCode, PR_LANGUAGE_I_DEFAULT);
+
+    fprintf(stderr, "selfserv: %s returned error %d:\n%s\n",
+            error_msg, errorCode, errString);
+    exit(EXIT_FAILURE);
 }
 
 void enableAllCiphers() {
@@ -54,7 +53,7 @@ int main() {
     PR_Init(PR_SYSTEM_THREAD, PR_PRIORITY_NORMAL, 1);
 
     // set callback retrieving the password
-    PK11_SetPasswordFunc(passwd_callback);
+    PK11_SetPasswordFunc(passwd_callback); // now using a db without a password
 
     // set up NSS config; not idempotent, only call once
     NSS_Init(DB_DIR);
@@ -102,7 +101,7 @@ int main() {
         SSL_RevealPinArg. PK11_SetPasswordFunc
      */
     void *pwArg = SSL_RevealPinArg(listen_sock);
-    CERTCertificate *cert = PK11_FindCertFromNickname("myco.mcom.org", pwArg);
+    CERTCertificate *cert = PK11_FindCertFromNickname("server", pwArg); // Nick: RootCA for testing purposes?
     if (cert == NULL)
         die("PK11_FindCertFromNickname");
     SECKEYPrivateKey *privKey = PK11_FindKeyByAnyCert(cert, pwArg);
