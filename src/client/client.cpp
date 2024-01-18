@@ -134,16 +134,30 @@ int main() {
 
     log("forced handshake");
 
-    const char *msg_buf = "Hello World";
-    int msg_buf_len = (int) strlen(msg_buf)+1;
-    switch (PR_Write(ssl_sock, msg_buf, msg_buf_len)) {
-        case -1:
-            diePRError("PR_Send");
-            break;
-        case 0:
-            die("Error sending, network connection is closed");
-            break;
+    // Read "Hello World!"
+    int buf_len = strlen("Hello World!") + 1; // +1 for /0
+    char buf[1024];
+    memset(buf, 0, 1024);
+    int bytes_read = PR_Recv(ssl_sock, buf, 1024, NULL, PR_INTERVAL_NO_TIMEOUT); // ssl_sock
+    if (bytes_read == -1) {
+        diePRError("Error receiving Hello World!");
+    } else if (bytes_read == 0) {
+        die("Error connection closed before receiving bytes");
     }
+    buf[bytes_read] = '\0';
+    cout << "Bytes read: " << bytes_read << " Message: " << buf+10 << endl;
+
+    // send hello world
+//    const char *msg_buf = "Hello World";
+//    int msg_buf_len = (int) strlen(msg_buf)+1;
+//    switch (PR_Write(ssl_sock, msg_buf, msg_buf_len)) {
+//        case -1:
+//            diePRError("PR_Send");
+//            break;
+//        case 0:
+//            die("Error sending, network connection is closed");
+//            break;
+//    }
 
     log("sent message");
 
