@@ -6,6 +6,7 @@
 #include "../../include/pk11func.h"
 
 #define DB_DIR "./pki"
+#define ROOT_CA_CERT "./rootca.crt"
 #define HOSTNAME "helloworld.example.com"
 #define SERVER_PORT 12345
 
@@ -24,7 +25,7 @@ void diePRError(const char* error_msg) {
     PRErrorCode errorCode = PR_GetError();
     const char *errString = PR_ErrorToString(errorCode, PR_LANGUAGE_I_DEFAULT);
 
-    fprintf(stderr, "selfserv: %s returned error %d:\n%s\n",
+    fprintf(stderr, "%s - error %d:\n%s\n",
             error_msg, errorCode, errString);
     exit(EXIT_FAILURE);
 }
@@ -57,7 +58,8 @@ int main() {
     PK11_SetPasswordFunc(passwd_callback); // now uses db without a password
 
     // set up NSS config; not idempotent, only call once
-    NSS_Init(DB_DIR);
+    NSS_Init(DB_DIR); // For HTTPS the client does not need any certs, only has to check the server cert?
+//    NSS_NoDB_Init(nullptr);
 
 //    enableAllCiphers();
     // allow all ciphers permitted to export from the US
@@ -115,13 +117,20 @@ int main() {
     srv_addr.inet.ip = inet_addr("127.0.0.1"); // TODO get ip through domain
     srv_addr.inet.port = PR_htons(SERVER_PORT);
 
+    // Resolve the server hostname
+//    if (PR_InitializeNetAddr(PR_AfFromString("IPv4"), SERVER_HOST, &server_addr) != PR_SUCCESS) {
+//        die("Error resolving server address");
+//    }
+
     if (PR_SUCCESS != PR_Connect(ssl_sock, &srv_addr, PR_INTERVAL_NO_TIMEOUT)) {
         die("Error connecting to server");
     }
 
     log("connected to host entity");
 
-    SSL_ForceHandshake(ssl_sock);
+    if (SSL_ForceHandshake(ssl_sock) != SECSuccess) {
+        diePRError("SSL/TLS handshake failed");
+    }
 
     log("forced handshake");
 
