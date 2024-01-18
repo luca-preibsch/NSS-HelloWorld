@@ -100,6 +100,9 @@ int main() {
         set with SSL_SetPKCS11PinArg during SSL configuration. To retrieve its current value, use
         SSL_RevealPinArg. PK11_SetPasswordFunc
      */
+    const SSLExtraServerCertData ocspData = {
+            ssl_auth_null, NULL, NULL, NULL, NULL, NULL
+    };
     void *pwArg = SSL_RevealPinArg(listen_sock);
     CERTCertificate *cert = PK11_FindCertFromNickname("server", pwArg); // Nick: RootCA for testing purposes?
     if (cert == NULL)
@@ -107,7 +110,7 @@ int main() {
     SECKEYPrivateKey *privKey = PK11_FindKeyByAnyCert(cert, pwArg);
     if (privKey == NULL)
         die("PK11_FindKeyByAnyCert");
-    if (SECFailure == SSL_ConfigServerCert(listen_sock, cert, privKey, NULL, 0)) { // 505 selfserv.c
+    if (SECFailure == SSL_ConfigServerCert(listen_sock, cert, privKey, &ocspData, sizeof(ocspData))) { // 505 selfserv.c
         diePRError("SSL_ConfigServerCert");
     }
 
@@ -137,17 +140,30 @@ int main() {
             PR_Close(tcp_sock);
         }
 
-        // Read "Hello World!"
-        int buf_len = strlen("Hello World!") + 1; // +1 for /0
-        char buf[1024];
-        memset(buf, 0, buf_len);
-        int bytes_read = PR_Read(ssl_sock, buf, 1024); // ssl_sock
-        if (bytes_read == -1) {
-            diePRError("Error receiving Hello World!");
-        } else if (bytes_read == 0) {
-            die("Error connection closed before receiving bytes");
+        // send hello world
+        const char *msg_buf = "Was geht World";
+        int msg_buf_len = (int) strlen(msg_buf)+1;
+        switch (PR_Send(ssl_sock, msg_buf, msg_buf_len, NULL, PR_INTERVAL_NO_TIMEOUT)) {
+            case -1:
+                diePRError("PR_Send");
+                break;
+            case 0:
+                die("Error sending, network connection is closed");
+                break;
         }
-        cout << "Message: " << buf << endl;
+
+        // Read "Hello World!"
+//        int buf_len = strlen("Hello World!") + 1; // +1 for /0
+//        char buf[1024];
+//        memset(buf, 0, 1024);
+//        int bytes_read = PR_Read(ssl_sock, buf, 1024); // ssl_sock
+//        if (bytes_read == -1) {
+//            diePRError("Error receiving Hello World!");
+//        } else if (bytes_read == 0) {
+//            die("Error connection closed before receiving bytes");
+//        }
+//        buf[bytes_read] = '\0';
+//        cout << "Message: " << buf << endl;
 
         PR_Close(ssl_sock);
     }
