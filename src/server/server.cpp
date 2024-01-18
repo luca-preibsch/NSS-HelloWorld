@@ -23,7 +23,7 @@ void diePRError(const char* error_msg) {
     PRErrorCode errorCode = PR_GetError();
     const char *errString = PR_ErrorToString(errorCode, PR_LANGUAGE_I_DEFAULT);
 
-    fprintf(stderr, "selfserv: %s returned error %d:\n%s\n",
+    fprintf(stderr, "%s - error %d:\n%s\n",
             error_msg, errorCode, errString);
     exit(EXIT_FAILURE);
 }
@@ -139,9 +139,9 @@ int main() {
 
         // Read "Hello World!"
         int buf_len = strlen("Hello World!") + 1; // +1 for /0
-        char buf[buf_len];
+        char buf[1024];
         memset(buf, 0, buf_len);
-        int bytes_read = PR_Read(tcp_sock, buf, buf_len); // ssl_sock
+        int bytes_read = PR_Read(ssl_sock, buf, 1024); // ssl_sock
         if (bytes_read == -1) {
             diePRError("Error receiving Hello World!");
         } else if (bytes_read == 0) {
@@ -149,7 +149,7 @@ int main() {
         }
         cout << "Message: " << buf << endl;
 
-        PR_Close(tcp_sock);
+        PR_Close(ssl_sock);
     }
 
     PR_Close(listen_sock);
