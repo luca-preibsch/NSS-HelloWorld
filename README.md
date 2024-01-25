@@ -143,6 +143,40 @@ Is this a critical extension [y/N]?
 > n
 ```
 
+#### Validate the certificates:
+
+1. Extract server cert for later use:
+
+```shell
+certutil -L -d pki -n server -a -o server.crt
+```
+
+2. Extract private key for later use:
+
+```shell
+pk12util -o privateKey.p12 -n server -d pki
+```
+
+3. Convert .p12 file to ASCII .key file (this guide uses openssl for this purpose):
+
+```shell
+openssl pkcs12 -in privateKey.p12 -out server.key -nodes
+```
+
+4. Start openssl s_client and s_server using the generated certificates:
+
+```shell
+# server
+openssl s_server -key server.key -cert server.crt -accept 443
+```
+
+```shell
+# client
+openssl s_client -connect localhost:443 -CAfile rootca.crt
+```
+
+Verification should go through, and you should be able to send messages between server and client.
+
 #### Further useful tools:
 
 - List all certificates in the database:
