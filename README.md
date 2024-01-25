@@ -9,7 +9,7 @@ mkdir pki           # the new db will be located in the directory pki
 certutil -N -d pki  # create a new db in the directory pki
 ```
 
-```shell
+```
 Enter new password:
 
 > <password for the NSS db, can be ommitted>
@@ -69,7 +69,7 @@ certutil -S -d pki -c "RootCA" -n "server" -s "CN=helloworld.example.com" -t "u,
 - `-1`: Create a key usage extension. This will cause a prompt that asks which values should be set.
 - `-6`: Create an extended key usage extension. This will cause a prompt that asks which values should be set.
 
-```shell
+```
 Enter Password or Pin for "NSS Certificate DB":
 
 > password set earlier
