@@ -8,7 +8,7 @@
 #define DB_DIR "./pki"
 #define ROOT_CA_CERT "./rootca.crt"
 #define HOSTNAME "helloworld.example.com"
-#define SERVER_PORT 12345
+#define SERVER_PORT 443
 
 using namespace std;
 
@@ -144,20 +144,20 @@ int main() {
     } else if (bytes_read == 0) {
         die("Error connection closed before receiving bytes");
     }
-    buf[bytes_read] = '\0';
-    cout << "Bytes read: " << bytes_read << " Message: " << buf+10 << endl;
+//    buf[bytes_read] = '\0';
+    cout << "Bytes read: " << bytes_read << " Message: " << buf << endl;
 
     // send hello world
-//    const char *msg_buf = "Hello World";
-//    int msg_buf_len = (int) strlen(msg_buf)+1;
-//    switch (PR_Write(ssl_sock, msg_buf, msg_buf_len)) {
-//        case -1:
-//            diePRError("PR_Send");
-//            break;
-//        case 0:
-//            die("Error sending, network connection is closed");
-//            break;
-//    }
+    const char *msg_buf = "Hello World\n";
+    int msg_buf_len = (int) strlen(msg_buf)+1;
+    switch (PR_Write(ssl_sock, msg_buf, msg_buf_len)) {
+        case -1:
+            diePRError("PR_Send");
+            break;
+        case 0:
+            die("Error sending, network connection is closed");
+            break;
+    }
 
     log("sent message");
 
