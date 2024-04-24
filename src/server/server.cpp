@@ -6,7 +6,7 @@
 #include "../../include/pk11func.h"
 
 #define DB_DIR "./pki"
-#define SERVER_PORT 12345
+#define SERVER_PORT 443
 
 using namespace std;
 
@@ -79,7 +79,7 @@ int main() {
     PRNetAddr listen_addr;
 //    PR_InitializeNetAddr()
     listen_addr.inet.family = PR_AF_INET;
-    listen_addr.inet.ip = PR_INADDR_ANY;
+    listen_addr.inet.ip = PR_htonl(PR_INADDR_ANY);
     listen_addr.inet.port = PR_htons(SERVER_PORT);
 
     // TODO: needed for listen socket?
@@ -100,9 +100,9 @@ int main() {
         set with SSL_SetPKCS11PinArg during SSL configuration. To retrieve its current value, use
         SSL_RevealPinArg. PK11_SetPasswordFunc
      */
-    const SSLExtraServerCertData ocspData = {
-            ssl_auth_null, NULL, NULL, NULL, NULL, NULL
-    };
+//    const SSLExtraServerCertData ocspData = {
+//            ssl_auth_null, NULL, NULL, NULL, NULL, NULL
+//    };
     void *pwArg = SSL_RevealPinArg(listen_sock);
     CERTCertificate *cert = PK11_FindCertFromNickname("server", pwArg); // Nick: RootCA for testing purposes?
     if (cert == NULL)
@@ -110,7 +110,10 @@ int main() {
     SECKEYPrivateKey *privKey = PK11_FindKeyByAnyCert(cert, pwArg);
     if (privKey == NULL)
         die("PK11_FindKeyByAnyCert");
-    if (SECFailure == SSL_ConfigServerCert(listen_sock, cert, privKey, &ocspData, sizeof(ocspData))) { // 505 selfserv.c
+//    if (SECFailure == SSL_ConfigServerCert(listen_sock, cert, privKey, &ocspData, sizeof(ocspData))) { // 505 selfserv.c
+//        diePRError("SSL_ConfigServerCert");
+//    }
+    if (SECFailure == SSL_ConfigServerCert(listen_sock, cert, privKey, NULL, 0)) { // 505 selfserv.c
         diePRError("SSL_ConfigServerCert");
     }
 
@@ -132,18 +135,18 @@ int main() {
 
         log("accepted connection");
 
-        // create SSL socket from TCP socket
-        PRFileDesc* ssl_sock = SSL_ImportFD(nullptr, tcp_sock);
-        if (!ssl_sock) {
-            die("Error importing TCP socket into SSL library");
-            PR_Close(listen_sock);
-            PR_Close(tcp_sock);
-        }
+//        // create SSL socket from TCP socket
+//        PRFileDesc* ssl_sock = SSL_ImportFD(nullptr, tcp_sock);
+//        if (!ssl_sock) {
+//            die("Error importing TCP socket into SSL library");
+//            PR_Close(listen_sock);
+//            PR_Close(tcp_sock);
+//        }
 
         // send hello world
-        const char *msg_buf = "Was geht World";
+        const char *msg_buf = "Hello Client\n";
         int msg_buf_len = (int) strlen(msg_buf)+1;
-        switch (PR_Send(ssl_sock, msg_buf, msg_buf_len, NULL, PR_INTERVAL_NO_TIMEOUT)) {
+        switch (PR_Send(tcp_sock, msg_buf, msg_buf_len, NULL, PR_INTERVAL_NO_TIMEOUT)) {
             case -1:
                 diePRError("PR_Send");
                 break;
@@ -153,19 +156,19 @@ int main() {
         }
 
         // Read "Hello World!"
-//        int buf_len = strlen("Hello World!") + 1; // +1 for /0
-//        char buf[1024];
-//        memset(buf, 0, 1024);
-//        int bytes_read = PR_Read(ssl_sock, buf, 1024); // ssl_sock
-//        if (bytes_read == -1) {
-//            diePRError("Error receiving Hello World!");
-//        } else if (bytes_read == 0) {
-//            die("Error connection closed before receiving bytes");
-//        }
-//        buf[bytes_read] = '\0';
-//        cout << "Message: " << buf << endl;
+        int buf_len = strlen("Hello World!") + 1; // +1 for /0
+        char buf[1024];
+        memset(buf, 0, 1024);
+        int bytes_read = PR_Recv(tcp_sock, buf, 1024, 0, PR_INTERVAL_NO_TIMEOUT); // ssl_sock
+        if (bytes_read == -1) {
+            diePRError("Error receiving Hello World!");
+        } else if (bytes_read == 0) {
+            die("Error connection closed before receiving bytes");
+        }
+        buf[bytes_read] = '\0';
+        cout << "Message: " << buf << endl;
 
-        PR_Close(ssl_sock);
+        PR_Close(tcp_sock);
     }
 
     PR_Close(listen_sock);
