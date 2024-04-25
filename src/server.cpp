@@ -1,9 +1,9 @@
 #include <iostream>
 
-#include "../../include/nss.h"
-#include "../../include/ssl.h"
-#include "../../include/nspr.h"
-#include "../../include/pk11func.h"
+#include "../include/nss.h"
+#include "../include/ssl.h"
+#include "../include/nspr.h"
+#include "../include/pk11func.h"
 
 #define DB_DIR "./pki"
 #define SERVER_PORT 443
