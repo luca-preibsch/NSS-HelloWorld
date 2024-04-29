@@ -5,48 +5,12 @@
 #include "../include/nspr.h"
 #include "../include/pk11func.h"
 
+#include "helpers.h"
+
 #define DB_DIR "./pki"
 #define SERVER_PORT 443
 
 using namespace std;
-
-void die(const string& error_msg) {
-    cout << error_msg << endl;
-    exit(EXIT_FAILURE);
-}
-
-void log(const string& msg) {
-    cout << msg << endl;
-}
-
-void diePRError(const char* error_msg) {
-    PRErrorCode errorCode = PR_GetError();
-    const char *errString = PR_ErrorToString(errorCode, PR_LANGUAGE_I_DEFAULT);
-
-    fprintf(stderr, "%s - error %d:\n%s\n",
-            error_msg, errorCode, errString);
-    exit(EXIT_FAILURE);
-}
-
-void enableAllCiphers() {
-    const PRUint16 *cipherSuites = SSL_ImplementedCiphers;
-    int i = SSL_NumImplementedCiphers;
-    SECStatus rv;
-
-    while (--i >= 0) {
-        PRUint16 suite = cipherSuites[i];
-        rv = SSL_CipherPrefSetDefault(suite, PR_TRUE);
-        if (rv != SECSuccess) {
-            printf("SSL_CipherPrefSetDefault rejected suite 0x%04x (i = %d)\n",
-                   suite, i);
-        }
-    }
-}
-
-char *passwd_callback(PK11SlotInfo *slot, PRBool retry, void *arg) {
-    char *passwd = "nss";
-    return PL_strdup(passwd);
-}
 
 int main() {
     // must be called before any other NSS function

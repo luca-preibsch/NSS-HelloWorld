@@ -22,11 +22,11 @@ run-server: server	# DYLD_LIBRARY_PATH only works for MacOS, has to be changed t
 run-client: client	# DYLD_LIBRARY_PATH only works for MacOS, has to be changed to LD_LIBRARY_PATH for Linux
 	export DYLD_LIBRARY_PATH=$(LIBDIR):$$DYLD_LIBRARY_PATH && ./client		# for dynamic linking
 
-server: src/server.o
+server: src/server.o src/helpers.o
 	$(CXX) $(CXXFLAGS) $^ -o $@ $(LNKFLAGS)
 
-client: src/client.o
+client: src/client.o src/helpers.o
 	$(CXX) $(CXXFLAGS) $^ -o $@ $(LNKFLAGS)
 
-src/%.o: src/%.cpp
+src/%.o: src/%.cpp src/helpers.h
 	$(CXX) $(CXXFLAGS) -c $< -o $@ -I include
