@@ -1,3 +1,6 @@
+This is a very rudimentary NSS server and client, that I used to get to know the NSS library.
+Because I found it very hard to find examples and the documentation is lacking in quality (is very deprecated), I wanted to publish this code in order to help anyone else learning NSS.
+
 # Getting Started
 
 ## Building the dependencies:
