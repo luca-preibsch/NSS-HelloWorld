@@ -22,9 +22,7 @@ int main() {
 
     // set up NSS config; not idempotent, only call once
     NSS_Init(DB_DIR); // For HTTPS the client does not need any certs, only has to check the server cert?
-//    NSS_NoDB_Init(nullptr);
 
-//    enableAllCiphers();
     // allow all ciphers permitted to export from the US
     NSS_SetExportPolicy();
 
@@ -44,46 +42,15 @@ int main() {
         die("Error importing ssl_sock socket into SSL library");
     }
 
-    // TODO set hostname, is the hostname set in the certificate the one needed?
+    // set hostname
     SSL_SetURL(ssl_sock, HOSTNAME);
 
     log("imported TCP Socket into NSS");
 
-    // TODO enumerate hosts not required?
-//    char buf[PR_NETDB_BUF_SIZE];
-//    PRHostEnt host_ent;
-//    if (PR_FAILURE == PR_GetHostByName(HOSTNAME, buf, PR_NETDB_BUF_SIZE, &host_ent)) {
-//        die("Error for GetHostByName");
-//    }
-//
-//    log("got host by name");
-//    PRNetAddr server_addr;
-//    int index = 0;
-//    for (;;) {
-//        index = PR_EnumerateHostEnt(index, &host_ent, SERVER_PORT, &server_addr);
-//        if (index == -1) {
-//            die("Error enumerating host entities");
-//        }
-//        if (index == 0) {
-//            die("Found no valid host entity");
-//        }
-//
-//        if (PR_SUCCESS == PR_Connect(ssl_sock, &server_addr, PR_INTERVAL_NO_TIMEOUT)) {
-//            break;
-////            die("Error connecting to server");
-//        }
-//    }
-
     PRNetAddr srv_addr;
-//    PR_InitializeNetAddr()
     srv_addr.inet.family = PR_AF_INET;
     srv_addr.inet.ip = inet_addr("127.0.0.1"); // TODO get ip through domain
     srv_addr.inet.port = PR_htons(SERVER_PORT);
-
-    // Resolve the server hostname
-//    if (PR_InitializeNetAddr(PR_AfFromString("IPv4"), SERVER_HOST, &server_addr) != PR_SUCCESS) {
-//        die("Error resolving server address");
-//    }
 
     if (PR_SUCCESS != PR_Connect(ssl_sock, &srv_addr, PR_INTERVAL_NO_TIMEOUT)) {
         die("Error connecting to server");
@@ -97,23 +64,20 @@ int main() {
 
     log("forced handshake");
 
-    // Read "Hello World!"
-    int buf_len = strlen("Hello World!") + 1; // +1 for /0
+    // Read hello from server
     char buf[1024];
     memset(buf, 0, 1024);
-    int bytes_read = PR_Recv(ssl_sock, buf, 1024, NULL, PR_INTERVAL_NO_TIMEOUT); // ssl_sock
+    int bytes_read = PR_Recv(ssl_sock, buf, 1024, 0, PR_INTERVAL_NO_TIMEOUT);
     if (bytes_read == -1) {
         diePRError("Error receiving Hello World!");
     } else if (bytes_read == 0) {
         die("Error connection closed before receiving bytes");
     }
-//    buf[bytes_read] = '\0';
     cout << "Bytes read: " << bytes_read << " Message: " << buf << endl;
 
-    // send hello world
-    const char *msg_buf = "Hello World\n";
-    int msg_buf_len = (int) strlen(msg_buf)+1;
-    switch (PR_Write(ssl_sock, msg_buf, msg_buf_len)) {
+    // Send hello world
+    const string msg = "Hello from the client!\n";
+    switch (PR_Write(ssl_sock, msg.c_str(), (int) msg.length())) {
         case -1:
             diePRError("PR_Send");
             break;
@@ -125,43 +89,9 @@ int main() {
     log("sent message");
 
     PR_Close(ssl_sock);
-//    PR_Close(tcp_sock); // already closed through the derived socket ssl_sock?
     NSS_Shutdown();
 
     log("shutting down");
 
     return 0;
 }
-
-//int main() {
-//    // NSS initialisieren
-//    NSS_Init("");
-//
-//    // SSL-Client erstellen
-//    PRFileDesc* clientSocket = SSL_ImportFD(nullptr, PR_NewTCPSocket());
-//    if (!clientSocket) {
-//        fprintf(stderr, "Fehler beim Erstellen des Client-Sockets\n");
-//        return 1;
-//    }
-//
-//    // Mit dem Server verbinden
-//    PRNetAddr serverAddr;
-//    PR_InitializeNetAddr(PR_IpAddrAny, 0, &serverAddr);
-//    serverAddr.inet.family = PR_AF_INET;
-//    serverAddr.inet.port = PR_htons(443); // Setze den richtigen Port ein
-//
-//    PRStatus status = PR_Connect(clientSocket, &serverAddr, PR_INTERVAL_NO_TIMEOUT);
-//    if (status != PR_SUCCESS) {
-//        fprintf(stderr, "Fehler beim Verbinden mit dem Server\n");
-//        return 1;
-//    }
-//
-//    // Daten über die TLS-Verbindung senden/empfangen
-//    // Implementiere hier deine Logik für die Datenübertragung
-//
-//    // Aufräumen
-//    PR_Close(clientSocket);
-//    NSS_Shutdown();
-//
-//    return 0;
-//}

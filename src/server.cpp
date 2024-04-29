@@ -17,19 +17,17 @@ int main() {
     PR_Init(PR_SYSTEM_THREAD, PR_PRIORITY_NORMAL, 1);
 
     // set callback retrieving the password
-    PK11_SetPasswordFunc(passwd_callback); // now using a db without a password
+    PK11_SetPasswordFunc(passwd_callback);
 
     // set up NSS config; not idempotent, only call once
     NSS_Init(DB_DIR);
 
     // allow all ciphers permitted to export from the US
     NSS_SetExportPolicy();
-//    enableAllCiphers();
 
     // create server session id cache, required if the application should handshake as a server
-    // TODO: is this even applicable to a simple server? Does a simple server even handshake or does the client
-    // handshake and the server is handshaken???
-    SSL_ConfigServerSessionIDCache(NULL, 0, 10, NULL);
+    // TODO: is this even applicable to a simple server? Does a simple server even handshake or does the client handshake and the server is being handshook???
+    SSL_ConfigServerSessionIDCache(0, 0, 10, nullptr);
 
     log("NSS initialized");
 
@@ -41,12 +39,10 @@ int main() {
 
     // bind listen sock to a specific port
     PRNetAddr listen_addr;
-//    PR_InitializeNetAddr()
     listen_addr.inet.family = PR_AF_INET;
     listen_addr.inet.ip = PR_htonl(PR_INADDR_ANY);
     listen_addr.inet.port = PR_htons(SERVER_PORT);
 
-    // TODO: needed for listen socket?
     // create SSL socket from TCP socket
     listen_sock = SSL_ImportFD(nullptr, listen_sock);
     if (!listen_sock) {
@@ -58,26 +54,16 @@ int main() {
         PR_Close(listen_sock);
     }
 
-    // configure listen sock for handshakes, sockets created by PR_Accept on this socket inherit the configuration
-    /*
-        A pointer to application data for the password callback function. This pointer is
-        set with SSL_SetPKCS11PinArg during SSL configuration. To retrieve its current value, use
-        SSL_RevealPinArg. PK11_SetPasswordFunc
-     */
-//    const SSLExtraServerCertData ocspData = {
-//            ssl_auth_null, NULL, NULL, NULL, NULL, NULL
-//    };
+    // configure listen sock with the server cert for handshakes
+    // sockets created by PR_Accept on this socket inherit the configuration
     void *pwArg = SSL_RevealPinArg(listen_sock);
     CERTCertificate *cert = PK11_FindCertFromNickname("server", pwArg); // Nick: RootCA for testing purposes?
-    if (cert == NULL)
+    if (cert == nullptr)
         die("PK11_FindCertFromNickname");
     SECKEYPrivateKey *privKey = PK11_FindKeyByAnyCert(cert, pwArg);
-    if (privKey == NULL)
+    if (privKey == nullptr)
         die("PK11_FindKeyByAnyCert");
-//    if (SECFailure == SSL_ConfigServerCert(listen_sock, cert, privKey, &ocspData, sizeof(ocspData))) { // 505 selfserv.c
-//        diePRError("SSL_ConfigServerCert");
-//    }
-    if (SECFailure == SSL_ConfigServerCert(listen_sock, cert, privKey, NULL, 0)) { // 505 selfserv.c
+    if (SECFailure == SSL_ConfigServerCert(listen_sock, cert, privKey, nullptr, 0)) { // 505 selfserv.c
         diePRError("SSL_ConfigServerCert");
     }
 
@@ -91,26 +77,18 @@ int main() {
 
     for (;;) {
         PRNetAddr client_addr;
-        PRFileDesc* tcp_sock = PR_Accept(listen_sock, &client_addr, PR_INTERVAL_NO_TIMEOUT);
-        if (!tcp_sock) {
+        // the socket returned by PR_Accept is already a ssl socket and inherits from the listen socket
+        PRFileDesc* ssl_sock = PR_Accept(listen_sock, &client_addr, PR_INTERVAL_NO_TIMEOUT);
+        if (!ssl_sock) {
             die("Error accepting client connection");
             PR_Close(listen_sock);
         }
 
         log("accepted connection");
 
-//        // create SSL socket from TCP socket
-//        PRFileDesc* ssl_sock = SSL_ImportFD(nullptr, tcp_sock);
-//        if (!ssl_sock) {
-//            die("Error importing TCP socket into SSL library");
-//            PR_Close(listen_sock);
-//            PR_Close(tcp_sock);
-//        }
-
         // send hello world
-        const char *msg_buf = "Hello Client\n";
-        int msg_buf_len = (int) strlen(msg_buf)+1;
-        switch (PR_Send(tcp_sock, msg_buf, msg_buf_len, NULL, PR_INTERVAL_NO_TIMEOUT)) {
+        const string msg = "Hello from the server!\n";
+        switch (PR_Send(ssl_sock, msg.c_str(), (int) msg.length(), 0, PR_INTERVAL_NO_TIMEOUT)) {
             case -1:
                 diePRError("PR_Send");
                 break;
@@ -119,20 +97,19 @@ int main() {
                 break;
         }
 
-        // Read "Hello World!"
-        int buf_len = strlen("Hello World!") + 1; // +1 for /0
+        // Read hello from client
         char buf[1024];
         memset(buf, 0, 1024);
-        int bytes_read = PR_Recv(tcp_sock, buf, 1024, 0, PR_INTERVAL_NO_TIMEOUT); // ssl_sock
+        int bytes_read = PR_Recv(ssl_sock, buf, 1024, 0, PR_INTERVAL_NO_TIMEOUT);
         if (bytes_read == -1) {
-            diePRError("Error receiving Hello World!");
+            diePRError("Error receiving message");
         } else if (bytes_read == 0) {
-            die("Error connection closed before receiving bytes");
+            die("Error connection closed before receiving any bytes");
         }
         buf[bytes_read] = '\0';
         cout << "Message: " << buf << endl;
 
-        PR_Close(tcp_sock);
+        PR_Close(ssl_sock);
     }
 
     PR_Close(listen_sock);
@@ -142,32 +119,3 @@ int main() {
 
     return 0;
 }
-
-//int main() {
-//    // NSS initialisieren
-//    NSS_Init("");
-//
-//    // SSL-Server erstellen
-//    PRFileDesc* serverSocket = SSL_CreateServerSocket(PR_AF_INET, PR_STREAM_LISTEN, 0, 443, nullptr);
-//    if (!serverSocket) {
-//        fprintf(stderr, "Fehler beim Erstellen des Server-Sockets\n");
-//        return 1;
-//    }
-//
-//    // Auf Verbindungen warten
-//    PRFileDesc* sslSocket = SSL_ImportFD(nullptr, serverSocket);
-//    PRStatus status = PR_Accept(sslSocket, nullptr, PR_INTERVAL_NO_TIMEOUT);
-//    if (status != PR_SUCCESS) {
-//        fprintf(stderr, "Fehler beim Akzeptieren der Verbindung\n");
-//        return 1;
-//    }
-//
-//    // Daten über die TLS-Verbindung senden/empfangen
-//    // Implementiere hier deine Logik für die Datenübertragung
-//
-//    // Aufräumen
-//    PR_Close(serverSocket);
-//    NSS_Shutdown();
-//
-//    return 0;
-//}
