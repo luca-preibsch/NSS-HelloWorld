@@ -220,3 +220,12 @@ certutil -L -d pki -n <nickname>
 ```shell
 certutil -F -d pki -n <nickname>
 ```
+
+# Run the hello world sample code
+Simply run both client and server on the same host, enter your NSS database password when required and enjoy!
+This project uses dynamic linking, if the NSS and NSPR libraries are not on your library path (e.g. LD_LIBRARY_PATH) use these Makefile targets:
+```shell
+make run-server
+make run-client
+```
+Should you use Linux, you need to modify the Makefile as noted in the file at the run-* targets.
