@@ -1,7 +1,32 @@
 # Getting Started
 
+## Building the dependencies:
+As dependencies, you will need both NSS and NSPR, you can either install these locally or build them from the source.
+If you decide to install them, make sure the dynamic libraries are in the systems dynamic libraries path
+(e.g. LD_LIBRARY_PATH for Linux).
+
+I decided to build them myself using the guide provided at the [NSS GitHub Mirror](https://github.com/nss-dev/nss).
+I will sum up the important steps:
+
+1. Clone both repositories into the **parent directory** of this project.
+    ```shell
+    git clone https://github.com/nss-dev/nss.git
+    hg clone https://hg.mozilla.org/projects/nspr
+    ```
+2. Install the build requirements:
+   - [gyp](https://gyp.gsrc.io/)
+   - [ninja](https://ninja-build.org/)
+3. Change into the NSS directory and run the build file
+    ```shell
+   cd nss
+   ./build.sh
+    ```
+
 ## Creating the Certificates:
+You will now need to create a root and a server certificate.
 Since this is a NSS "Hello World" program, we will use the tools provided by NSS.
+The required tools can be installed via package manager, but are also located in this projects parent directory under
+'dist/Debug/bin' after running the build file for NSS above.
 
 #### 1. Create a new NSS database
 ```shell
@@ -165,13 +190,13 @@ openssl pkcs12 -in privateKey.p12 -out server.key -nodes
 
 4. Start openssl s_client and s_server using the generated certificates:
 
+**server**:
 ```shell
-# server
 openssl s_server -key server.key -cert server.crt -accept 443
 ```
 
+**client**:
 ```shell
-# client
 openssl s_client -connect localhost:443 -CAfile rootca.crt
 ```
 
