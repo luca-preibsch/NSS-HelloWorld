@@ -22,7 +22,32 @@ PRBool my_SSLExtensionWriter(
         unsigned int maxLen,
         void *arg
 ) {
+    cout << "my_SSLExtensionWriter" << endl;
+
+    if (message != ssl_hs_client_hello)
+        return PR_FALSE;
+
+    cout << "Attach extension" << endl;
+
+    string hello_msg = "Hello from Client-Extension";
+    if (hello_msg.length() > maxLen)
+        die("Extension message too long.");
+    strcpy((char *) data, hello_msg.c_str());
+    *len = hello_msg.length();
+
     return PR_TRUE;
+}
+
+SECStatus my_SSLExtensionHandler(
+        PRFileDesc *fd,
+        SSLHandshakeType message,
+        const PRUint8 *data,
+        unsigned int len,
+        SSLAlertDescription *alert,
+        void *arg
+) {
+    printf("Received data: %.*s\n", len, data);
+    return SECSuccess;
 }
 
 int main() {
@@ -54,6 +79,17 @@ int main() {
         die("Error importing ssl_sock socket into SSL library");
     }
 
+    // RATLS
+    // check if the extension can use custom hooks
+    unsigned int extension = 420; // SSLExtensionType
+
+    SSLExtensionSupport sslExtensionSupport = ssl_ext_native_only;
+    SSL_GetExtensionSupport(extension, &sslExtensionSupport);
+    if (sslExtensionSupport != ssl_ext_none && sslExtensionSupport != ssl_ext_native)
+        die("SSL extension number not permitted by NSS, is 'native only'");
+
+    SSL_InstallExtensionHooks(ssl_sock, extension, my_SSLExtensionWriter, nullptr, my_SSLExtensionHandler, nullptr);
+
     // set hostname
     SSL_SetURL(ssl_sock, HOSTNAME);
 
@@ -63,15 +99,6 @@ int main() {
     srv_addr.inet.family = PR_AF_INET;
     srv_addr.inet.ip = inet_addr("127.0.0.1"); // TODO get ip through domain
     srv_addr.inet.port = PR_htons(SERVER_PORT);
-
-    // RATLS
-    // check if the extension can use custom hooks
-    SSLExtensionSupport sslExtensionSupport = ssl_ext_native_only;
-    SSL_GetExtensionSupport(420, &sslExtensionSupport);
-    if (sslExtensionSupport != ssl_ext_none && sslExtensionSupport != ssl_ext_native)
-        die("SSL extension number not permitted by NSS, is 'native only'");
-
-    SSL_InstallExtensionHooks(ssl_sock, 420, my_SSLExtensionWriter, nullptr, nullptr, nullptr);
 
     if (PR_SUCCESS != PR_Connect(ssl_sock, &srv_addr, PR_INTERVAL_NO_TIMEOUT)) {
         die("Error connecting to server");

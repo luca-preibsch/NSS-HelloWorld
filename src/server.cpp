@@ -4,6 +4,7 @@
 #include "../include/ssl.h"
 #include "../include/nspr.h"
 #include "../include/pk11func.h"
+#include "../include/sslexp.h"
 
 #include "helpers.h"
 
@@ -11,6 +12,42 @@
 #define SERVER_PORT 443
 
 using namespace std;
+
+PRBool my_SSLExtensionWriter(
+        PRFileDesc *fd,
+        SSLHandshakeType message,
+        PRUint8 *data,
+        unsigned int *len,
+        unsigned int maxLen,
+        void *arg
+) {
+    cout << "my_SSLExtensionWriter" << endl;
+
+    if (message != ssl_hs_client_hello)
+        return PR_FALSE;
+
+    cout << "Attach extension" << endl;
+
+    string hello_msg = "Hello from Server-Extension";
+    if (hello_msg.length() > maxLen)
+        die("Extension message too long.");
+    strcpy((char *) data, hello_msg.c_str());
+    *len = hello_msg.length();
+
+    return PR_TRUE;
+}
+
+SECStatus my_SSLExtensionHandler(
+        PRFileDesc *fd,
+        SSLHandshakeType message,
+        const PRUint8 *data,
+        unsigned int len,
+        SSLAlertDescription *alert,
+        void *arg
+) {
+    printf("Received data: %.*s\n", len, data);
+    return SECSuccess;
+}
 
 int main() {
     // must be called before any other NSS function
@@ -48,6 +85,17 @@ int main() {
     if (!listen_sock) {
         die("Error importing listen socket into SSL library");
     }
+
+    // RATLS
+    // check if the extension can use custom hooks
+    unsigned int extension = 420; // SSLExtensionType
+
+    SSLExtensionSupport sslExtensionSupport = ssl_ext_native_only;
+    SSL_GetExtensionSupport(extension, &sslExtensionSupport);
+    if (sslExtensionSupport != ssl_ext_none && sslExtensionSupport != ssl_ext_native)
+        die("SSL extension number not permitted by NSS, is 'native only'");
+
+    SSL_InstallExtensionHooks(listen_sock, extension, my_SSLExtensionWriter, nullptr, my_SSLExtensionHandler, nullptr);
 
     if (PR_Bind(listen_sock, &listen_addr)) {
         die("Error binding listen socket");
