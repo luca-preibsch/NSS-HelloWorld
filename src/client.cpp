@@ -4,6 +4,7 @@
 #include "../include/ssl.h"
 #include "../include/nspr.h"
 #include "../include/pk11func.h"
+#include "../include/sslexp.h"
 
 #include "helpers.h"
 
@@ -12,6 +13,17 @@
 #define SERVER_PORT 443
 
 using namespace std;
+
+PRBool my_SSLExtensionWriter(
+        PRFileDesc *fd,
+        SSLHandshakeType message,
+        PRUint8 *data,
+        unsigned int *len,
+        unsigned int maxLen,
+        void *arg
+) {
+    return PR_TRUE;
+}
 
 int main() {
     // must be called before any other NSS function
@@ -51,6 +63,15 @@ int main() {
     srv_addr.inet.family = PR_AF_INET;
     srv_addr.inet.ip = inet_addr("127.0.0.1"); // TODO get ip through domain
     srv_addr.inet.port = PR_htons(SERVER_PORT);
+
+    // RATLS
+    // check if the extension can use custom hooks
+    SSLExtensionSupport sslExtensionSupport = ssl_ext_native_only;
+    SSL_GetExtensionSupport(420, &sslExtensionSupport);
+    if (sslExtensionSupport != ssl_ext_none && sslExtensionSupport != ssl_ext_native)
+        die("SSL extension number not permitted by NSS, is 'native only'");
+
+    SSL_InstallExtensionHooks(ssl_sock, 420, my_SSLExtensionWriter, nullptr, nullptr, nullptr);
 
     if (PR_SUCCESS != PR_Connect(ssl_sock, &srv_addr, PR_INTERVAL_NO_TIMEOUT)) {
         die("Error connecting to server");
