@@ -23,7 +23,7 @@ PRBool my_SSLExtensionWriter(
 ) {
     cout << "my_SSLExtensionWriter" << endl;
 
-    if (message != ssl_hs_client_hello)
+    if (message != ssl_hs_server_hello)
         return PR_FALSE;
 
     cout << "Attach extension" << endl;
@@ -87,7 +87,7 @@ int main() {
     }
 
     // RATLS
-    // check if the extension can use custom hooks
+    // check if the extension can be used by custom hooks
     unsigned int extension = 420; // SSLExtensionType
 
     SSLExtensionSupport sslExtensionSupport = ssl_ext_native_only;
