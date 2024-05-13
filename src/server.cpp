@@ -1,4 +1,5 @@
 #include <iostream>
+#include <map>
 
 #include "../include/nss.h"
 #include "../include/ssl.h"
@@ -12,6 +13,10 @@
 #define SERVER_PORT 443
 
 using namespace std;
+//typedef map<SECItem*, string> NonceMap;
+typedef map<PRFileDesc*, string> NonceMap; // for now try with the fd
+
+NonceMap nonceMap;
 
 PRBool my_SSLExtensionWriter(
         PRFileDesc *fd,
@@ -21,14 +26,18 @@ PRBool my_SSLExtensionWriter(
         unsigned int maxLen,
         void *arg
 ) {
-    cout << "my_SSLExtensionWriter" << endl;
-
-    if (message != ssl_hs_server_hello)
+    if (message != ssl_hs_certificate)
         return PR_FALSE;
 
-    cout << "Attach extension" << endl;
+    cout << "my_SSLExtensionWriter" << endl;
 
-    string hello_msg = "Hello from Server-Extension";
+    // generate new attestation report including the client nonce
+    // send the attestation report with the certificate
+    cout << "Certificate fd: " << fd << endl;
+    // SECItem* sessionId = SSL_GetSessionID(fd); // TODO Assertion failure: !ssl_HaveXmitBufLock(ss), at ../../lib/ssl/sslsecur.c:1254
+    string nonce = nonceMap[fd];
+    string hello_msg = "RA_RES:" + nonce;
+
     if (hello_msg.length() > maxLen)
         die("Extension message too long.");
     strcpy((char *) data, hello_msg.c_str());
@@ -39,13 +48,31 @@ PRBool my_SSLExtensionWriter(
 
 SECStatus my_SSLExtensionHandler(
         PRFileDesc *fd,
-        SSLHandshakeType message,
+        SSLHandshakeType messageType,
         const PRUint8 *data,
         unsigned int len,
         SSLAlertDescription *alert,
         void *arg
 ) {
-    printf("Received data: %.*s\n", len, data);
+    if (messageType != ssl_hs_client_hello)
+        return SECSuccess;
+
+    log("my_SSLExtensionHandler");
+
+    string message((char*) data, len);  // TODO use C++ style cast
+    const string raReqText = "RA_REQ:";
+    if (message.substr(0, raReqText.length()) != raReqText) // C++ String comparison
+        return SECFailure;
+
+    string nonce = message.substr(raReqText.length(), message.length());
+    SECItem* sessionId = SSL_GetSessionID(fd);
+
+    cout << "Received Nonce: " << nonce << endl;
+
+    cout << "Hello fd: " << fd << endl;
+//    nonceMap.insert(pair<SECItem*, string>(sessionId, nonce));
+    nonceMap.insert(pair<PRFileDesc*, string>(fd, nonce)); // for now try with the fd
+
     return SECSuccess;
 }
 
@@ -88,7 +115,7 @@ int main() {
 
     // RATLS
     // check if the extension can be used by custom hooks
-    unsigned int extension = 420; // SSLExtensionType
+    unsigned int extension = 400; // SSLExtensionType
 
     SSLExtensionSupport sslExtensionSupport = ssl_ext_native_only;
     SSL_GetExtensionSupport(extension, &sslExtensionSupport);

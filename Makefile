@@ -1,5 +1,5 @@
 CXX = clang++
-CXXFLAGS = -std=c++11 -g # -Wall
+CXXFLAGS = -std=c++20 -g # -Wall
 
 # directory
 LIBDIR = ../dist/Debug/lib

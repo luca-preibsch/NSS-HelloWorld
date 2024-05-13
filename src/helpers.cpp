@@ -1,4 +1,5 @@
 #include <iostream>
+#include <random>
 
 #include "../include/nss.h"
 #include "../include/ssl.h"
@@ -31,4 +32,18 @@ char *passwd_callback(PK11SlotInfo *slot, PRBool retry, void *arg) {
     cout << "Please enter the password of your NSS certificate database: " << flush;
     getline(cin, passwd);
     return PL_strdup(passwd.c_str());
+}
+
+string generateNonce(int length) {
+    string nonce;
+    nonce.reserve(length);
+
+    random_device rd;
+    mt19937 gen(rd());
+    uniform_int_distribution<int> distribution(0, 255);
+
+    for (int i = 0; i < length; i++)
+        nonce += static_cast<char>(distribution(gen));
+
+    return nonce;
 }
