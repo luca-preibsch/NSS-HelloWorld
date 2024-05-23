@@ -65,7 +65,7 @@ SECStatus my_SSLExtensionHandler(
         return SECFailure;
 
     string nonce = message.substr(raReqText.length(), message.length());
-    SECItem* sessionId = SSL_GetSessionID(fd);
+    //SECItem* sessionId = SSL_GetSessionID(fd);
 
     cout << "Received Nonce: " << nonce << endl;
 
