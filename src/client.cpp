@@ -109,7 +109,7 @@ int main() {
 
     // RATLS
     // check if the extension can be used by custom hooks
-    unsigned int extension = 400; // SSLExtensionType
+    unsigned int extension = 420; // SSLExtensionType
 
     SSLExtensionSupport sslExtensionSupport = ssl_ext_native_only;
     SSL_GetExtensionSupport(extension, &sslExtensionSupport);

@@ -6,6 +6,7 @@
 #include "../include/nspr.h"
 #include "../include/pk11func.h"
 #include "../include/sslexp.h"
+#include "../include/sslproto.h"
 
 #include "helpers.h"
 
@@ -113,9 +114,17 @@ int main() {
         die("Error importing listen socket into SSL library");
     }
 
+    // Enforce TLS 1.3 in order to support extensions?
+    SSLVersionRange range;
+    range.min = SSL_LIBRARY_VERSION_TLS_1_3;
+    range.max = SSL_LIBRARY_VERSION_TLS_1_3;
+    if (SSL_VersionRangeSet(listen_sock, &range) != SECSuccess) {
+        diePRError("SSL_VersionRangeSet");
+    }
+
     // RATLS
     // check if the extension can be used by custom hooks
-    unsigned int extension = 400; // SSLExtensionType
+    unsigned int extension = 420; // SSLExtensionType
 
     SSLExtensionSupport sslExtensionSupport = ssl_ext_native_only;
     SSL_GetExtensionSupport(extension, &sslExtensionSupport);
